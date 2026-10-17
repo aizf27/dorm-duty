@@ -8,6 +8,11 @@ import {
   handleChores,
   validateMarker,
 } from "./chores.mjs";
+import {
+  createRequestId,
+  errorResponse,
+  finalizeApiResponse,
+} from "./shared/api.mjs";
 const DAY = 86_400_000;
 const SESSION_DAYS = 7;
 const ITERATIONS = 100_000;
@@ -1929,35 +1934,50 @@ async function dispatch(request, env, ctx) {
 // Symbol.for keeps the embedded Worker and Node gateway in the same process aligned.
 export const EMAIL_GATE_CAPABILITY = Symbol.for("dorm-duty.email-gateway.checked");
 export async function handleApi(request, env, ctx) {
-  if (env.EMAIL_GATE_VERIFIED !== EMAIL_GATE_CAPABILITY)
-    return json({ detail: { code: "email_gateway_required", message: "此部署未接入邮箱准入服务，请使用正式网站" } }, 503);
+  const requestId = createRequestId();
   try {
-    return await dispatch(request, env, ctx);
+    if (env.EMAIL_GATE_VERIFIED !== EMAIL_GATE_CAPABILITY)
+      return errorResponse(
+        503,
+        "email_gateway_required",
+        "此部署未接入邮箱准入服务，请使用正式网站",
+        requestId,
+      );
+    return await finalizeApiResponse(
+      await dispatch(request, env, ctx),
+      requestId,
+    );
   } catch (error) {
     if (
       error instanceof ApiError ||
       error instanceof ChoreError ||
       error instanceof CalendarError
     )
-      return json(
-        { detail: { code: error.code, message: error.message } },
+      return errorResponse(
         error.status,
+        error.code,
+        error.message,
+        requestId,
       );
     // Database error messages can contain bound values. Never return them or log session/password data.
     const message = String(error?.message || "");
     if (/UNIQUE constraint|constraint failed|SQLITE_CONSTRAINT/i.test(message))
-      return json(
-        {
-          detail: {
-            code: "conflict",
-            message: "数据已变化或记录重复，请刷新后重试",
-          },
-        },
+      return errorResponse(
         409,
+        "conflict",
+        "数据已变化或记录重复，请刷新后重试",
+        requestId,
       );
-    return json(
-      { detail: { code: "server_error", message: "云端服务暂忙，请稍后重试" } },
+    console.error(
+      `[web-api] unexpected error request_id=${requestId} type=${
+        error?.name || "Error"
+      }`,
+    );
+    return errorResponse(
       500,
+      "server_error",
+      "云端服务暂忙，请稍后重试",
+      requestId,
     );
   }
 }

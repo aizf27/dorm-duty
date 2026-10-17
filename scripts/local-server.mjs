@@ -5,6 +5,7 @@ import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { createHash, randomBytes } from "node:crypto";
 import { EMAIL_GATE_CAPABILITY } from "../site/worker/backend.mjs";
+import { createRequestId, errorResponse } from "../site/worker/shared/api.mjs";
 import worker from "../site/worker/index.js";
 import pushRuntimeModule from "../site/runtime/push-runtime.cjs";
 import emailRuntimeModule from "../site/runtime/email-runtime.cjs";
@@ -121,13 +122,7 @@ const ctx = {
   },
 };
 const failure = (status, message) =>
-  new Response(JSON.stringify({ detail: { message } }), {
-    status,
-    headers: {
-      "Content-Type": "application/json",
-      "Cache-Control": "no-store",
-    },
-  });
+  errorResponse(status, "server_error", message, createRequestId());
 
 try {
   await lockDatabase();
@@ -216,18 +211,23 @@ try {
         worker.fetch(next, { ...env, EMAIL_CREATOR: emailCreator, EMAIL_GATE_VERIFIED: EMAIL_GATE_CAPABILITY }, ctx),
       );
       if (url.pathname === "/health" && response.ok && req.method === "GET") {
+        const envelope = await response.json();
+        const health = envelope?.data || envelope;
         response = new Response(
           JSON.stringify({
-            ...(await response.json()),
-            application: serverDeployment ? "dorm-duty" : "dorm-duty-local",
-            runtime: serverDeployment ? "node-server" : "node-worker-local",
-            deployment_mode: deploymentMode,
-            node_version: process.versions.node,
-            web_base: webBase,
-            storage: "sqlite",
-            persistent: true,
-            database_id: databaseId,
-            release: releaseInfo,
+            data: {
+              ...health,
+              application: serverDeployment ? "dorm-duty" : "dorm-duty-local",
+              runtime: serverDeployment ? "node-server" : "node-worker-local",
+              deployment_mode: deploymentMode,
+              node_version: process.versions.node,
+              web_base: webBase,
+              storage: "sqlite",
+              persistent: true,
+              database_id: databaseId,
+              release: releaseInfo,
+            },
+            request_id: envelope.request_id,
           }),
           { status: 200, headers: response.headers },
         );
@@ -239,14 +239,18 @@ try {
           : Buffer.from(await response.arrayBuffer()),
       );
     } catch {
-      if (!res.headersSent)
-        res.writeHead(500, {
-          "Content-Type": "application/json",
-          "Cache-Control": "no-store",
-        });
-      res.end(
-        JSON.stringify({ detail: { message: "本地服务处理失败，请重试" } }),
-      );
+      if (!res.headersSent) {
+        const response = errorResponse(
+          500,
+          "server_error",
+          "本地服务处理失败，请重试",
+          createRequestId(),
+        );
+        res.writeHead(response.status, Object.fromEntries(response.headers));
+        res.end(await response.text());
+        return;
+      }
+      res.end();
     }
   });
   await new Promise((resolve, reject) => {

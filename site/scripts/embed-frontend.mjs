@@ -102,7 +102,7 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = safePath(url.pathname);
-    if (path === null) return new Response(JSON.stringify({detail:{code:"invalid_path",message:"访问路径无效"}}), {status:400,headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"}});
+    if (path === null) return errorResponse(400, "invalid_path", "访问路径无效");
     if (apiRoute.test(path)) return handleApi(request, env, ctx);
     if (!["GET", "HEAD"].includes(request.method))
       return new Response("不支持此请求方式", { status: 405, headers: { Allow: "GET, HEAD", "Cache-Control": "no-store", "Content-Type": "text/plain; charset=utf-8" } });
@@ -117,7 +117,7 @@ export default {
 
 const result = await build({
   stdin: {
-    contents: `import { handleApi } from "./backend.mjs";\nconst ASSETS = ${JSON.stringify(assets)};\nconst SERVICE_WORKER_SCOPE = ${JSON.stringify(workerScope)};\n${runtime}`,
+    contents: `import { handleApi } from "./backend.mjs";\nimport { errorResponse } from "./shared/api.mjs";\nconst ASSETS = ${JSON.stringify(assets)};\nconst SERVICE_WORKER_SCOPE = ${JSON.stringify(workerScope)};\n${runtime}`,
     sourcefile: "site-entry.js",
     resolveDir: join(siteRoot, "worker"),
   },
