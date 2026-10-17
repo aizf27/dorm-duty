@@ -1,6 +1,5 @@
-import { ApiError, query } from "./index";
-import { networkState } from "./network";
-import { appPath } from "./path";
+import { query } from "./index";
+import { request } from "./client";
 import type { Duty } from "./types";
 
 export interface GuestMember {
@@ -36,9 +35,7 @@ export async function guestApi<T>(
   signal: AbortSignal,
   token = "",
 ): Promise<T> {
-  return guestRequest<T>(path, params, signal, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
+  return guestRequest<T>(path, params, signal, {}, token);
 }
 export function createGuestDorm(
   values: {
@@ -60,41 +57,12 @@ async function guestRequest<T>(
   params: { invite_code?: string; member_id?: number },
   signal: AbortSignal,
   options: RequestInit = {},
+  token = "",
 ): Promise<T> {
-  const controller = new AbortController();
-  const cancel = () => controller.abort();
-  signal.addEventListener("abort", cancel, { once: true });
-  if (signal.aborted) controller.abort();
-  const timeout = setTimeout(() => controller.abort(), 15000);
-  try {
-    const suffix = query(params);
-    const response = await fetch(
-      `${appPath(path)}${suffix ? `?${suffix}` : ""}`,
-      {
-        ...options,
-        signal: controller.signal,
-        headers: { Accept: "application/json", ...options.headers },
-        credentials: "same-origin",
-        cache: "no-store",
-      },
-    );
-    networkState.unreachable = false;
-    const data = await response.json().catch(() => null);
-    if (!response.ok)
-      throw new ApiError(
-        response.status,
-        data?.detail?.message || "无法查看任务，请稍后重试",
-      );
-    return data as T;
-  } catch (error) {
-    if (signal.aborted) throw new DOMException("Cancelled", "AbortError");
-    if (error instanceof ApiError) throw error;
-    networkState.unreachable = true;
-    throw new Error(
-      navigator.onLine ? "连接服务失败，请稍后重试" : "当前离线，请联网后重试",
-    );
-  } finally {
-    clearTimeout(timeout);
-    signal.removeEventListener("abort", cancel);
-  }
+  const suffix = query(params);
+  return request<T>(`${path}${suffix ? `?${suffix}` : ""}`, options, {
+    token,
+    signal,
+    fallbackMessage: "无法查看任务，请稍后重试",
+  });
 }
