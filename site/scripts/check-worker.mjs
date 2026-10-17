@@ -19,6 +19,10 @@ const originalFetch = globalThis.fetch;
 const request = (path, options) => new Request(siteOrigin + path, options);
 const call = (path, options, bindings = env) =>
   worker.fetch(request(path, options), bindings);
+const responseData = async (response) => {
+  const body = await response.json();
+  return body?.data ?? body;
+};
 let assertions = 0;
 const check = (condition, message) => {
   assert.ok(condition, message);
@@ -117,7 +121,7 @@ try {
   try {
     const health = await call("/health", undefined, harness.env);
     check(health.status === 200, "同一 Worker 直接查询持久数据库");
-    const body = await health.json();
+    const body = await responseData(health);
     check(
       body.runtime === "cloudflare-worker" && body.storage === "d1",
       "云端运行和数据存储标记",
@@ -144,30 +148,26 @@ try {
       harness.env,
     );
     check(creation.status === 201, "免账号创建路由");
-    const created = await creation.json();
+    const created = await responseData(creation);
     harness.env.DEFAULT_DORM_INVITE_CODE = created.invite_code;
     check(
       (await call("/guest/dorm", undefined, harness.env)).status === 400,
       "未提供邀请码时默认正式宿舍不能暴露成员",
     );
-    const room = await (
-      await call(
-        `/guest/dorm?invite_code=${created.invite_code}`,
-        undefined,
-        harness.env,
-      )
-    ).json();
+    const room = await responseData(await call(
+      `/guest/dorm?invite_code=${created.invite_code}`,
+      undefined,
+      harness.env,
+    ));
     check(
       room.id === created.dorm.id && room.members.length === 0,
       "邀请码仅返回宿舍概要，不暴露名单",
     );
-    const own = await (
-      await call(
-        `/guest/tasks?invite_code=${created.invite_code}&member_id=${created.member_id}`,
-        { headers: {Authorization: `Bearer ${created.access_token}`} },
-        harness.env,
-      )
-    ).json();
+    const own = await responseData(await call(
+      `/guest/tasks?invite_code=${created.invite_code}&member_id=${created.member_id}`,
+      { headers: {Authorization: `Bearer ${created.access_token}`} },
+      harness.env,
+    ));
     check(own.today_task?.can_complete === false, "选成员不授予写入权限");
     check(
       (

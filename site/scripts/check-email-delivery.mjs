@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHarness } from "./check-cloud-backend.mjs";
+import { createHarness, responseData } from "./check-cloud-backend.mjs";
 import runtime from "../runtime/email-runtime.cjs";
 const h = await createHarness();
 let time = Date.now(),
@@ -37,13 +37,13 @@ try {
       method: "POST",
       data: { name: "邮件生命周期隔离", nickname: "甲" },
     })
-    .then((r) => r.json());
+    .then(responseData);
   const board = await h
     .request(
       `/chores/board?invite_code=${room.invite_code}&member_id=${room.member_id}`,
       { token: room.access_token },
     )
-    .then((r) => r.json());
+    .then(responseData);
   const task = board.today_tasks[0],
     db = h.db.sqlite,
     at = () => new Date(time).toISOString();

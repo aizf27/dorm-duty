@@ -1,7 +1,7 @@
 // Isolated SQLite, injected mail only. No production credentials or email delivery.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { createHarness } from "./check-cloud-backend.mjs";
+import { createHarness, responseData } from "./check-cloud-backend.mjs";
 import { handleApi } from "../worker/backend.mjs";
 import runtime from "../runtime/email-runtime.cjs";
 const h = await createHarness(),
@@ -59,7 +59,7 @@ async function api(
         { waitUntil() {} },
       ),
   );
-  const body = await r.json();
+  const body = await responseData(r);
   assert.equal(r.status, status, `${path}: ${JSON.stringify(body)}`);
   checks++;
   if (r.headers.get("Set-Cookie"))

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHarness } from "./check-cloud-backend.mjs";
+import { createHarness, responseData } from "./check-cloud-backend.mjs";
 const h = await createHarness();
 let checks = 0;
 const eq = (a, b, label) => {
@@ -8,7 +8,7 @@ const eq = (a, b, label) => {
 };
 async function api(path, token, method = "GET", data, status = 200) {
   const r = await h.request(path, { token, method, data });
-  const result = await r.json();
+  const result = await responseData(r);
   eq(
     r.status,
     status,

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createHarness, SQLiteD1 } from "./check-cloud-backend.mjs";
+import { createHarness, responseData, SQLiteD1 } from "./check-cloud-backend.mjs";
 
 // Every scenario runs against its own disposable database. No local user data,
 // credentials, or production database is opened by this script.
@@ -33,7 +33,7 @@ async function api(h, route, { status = 200, ...options } = {}) {
   );
   ok(/no-store/i.test(response.headers.get("cache-control") || ""));
   ok(/json/i.test(response.headers.get("content-type") || ""));
-  return response.json();
+  return responseData(response);
 }
 async function room(h, label = "三项值日验收") {
   const created = await api(h, "/guest/create", {

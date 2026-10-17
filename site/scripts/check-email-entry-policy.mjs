@@ -1,7 +1,7 @@
 // Isolated SQLite and injected mail only. Never reads deployed credentials.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { createHarness } from "./check-cloud-backend.mjs";
+import { createHarness, responseData } from "./check-cloud-backend.mjs";
 import { handleApi } from "../worker/backend.mjs";
 import { ensureLocalDemo } from "../local/database.mjs";
 import runtime from "../runtime/email-runtime.cjs";
@@ -55,7 +55,7 @@ async function api(p, data, status = 200, token, useCookie = true) {
   eq(r.status, status);
   if (r.headers.has("Set-Cookie"))
     cookie = r.headers.get("Set-Cookie").split(";")[0];
-  return r.json();
+  return responseData(r);
 }
 async function login() {
   const c = await api(
@@ -77,7 +77,7 @@ try {
       method: "POST",
       data: { name: "旧身份迁移", nickname: "旧创建者", members: ["室友"] },
     })
-    .then((r) => r.json());
+    .then(responseData);
   const at = new Date(clock).toISOString(),
     expires = new Date(clock + 86400000).toISOString();
   db.prepare(
@@ -187,14 +187,14 @@ try {
       method: "POST",
       data: { name: "恢复后直接关联邮箱", nickname: "创建者" },
     })
-    .then((r) => r.json());
+    .then(responseData);
   const recovery = await h
     .request("/dorms/recovery", {
       method: "POST",
       token: recoveryRoom.access_token,
       data: { expected_version: 0 },
     })
-    .then((r) => r.json());
+    .then(responseData);
   const recovered = await api(
     "/guest/recover",
     {

@@ -104,7 +104,8 @@ async function api(
     ...(data ? { body: JSON.stringify(data) } : {}),
   });
   eq(response.status, status, route.split("?")[0]);
-  return response.json();
+  const body = await response.json();
+  return body?.data ?? body;
 }
 function count() {
   const db = new SQLiteD1(database);

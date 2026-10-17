@@ -1,5 +1,6 @@
 import { networkState } from "./network";
 import { appPath } from "./path";
+import { normalizeApiError, unwrapApiData } from "./protocol";
 
 type ErrorDetails = unknown;
 
@@ -21,18 +22,6 @@ export class ApiError extends Error {
     super(message);
     this.name = "ApiError";
   }
-}
-
-function stableCode(status: number) {
-  if (status === 401) return "unauthorized";
-  if (status === 403) return "forbidden";
-  if (status === 404) return "not_found";
-  if (status === 409) return "conflict";
-  if (status === 422 || status === 413) return "validation_error";
-  if (status === 429) return "rate_limited";
-  if (status === 503) return "dependency_unavailable";
-  if (status >= 500) return "server_error";
-  return "request_failed";
 }
 
 function clearExpiredSession() {
@@ -57,26 +46,14 @@ function parseError(
   requestId: string | null,
   fallbackMessage: string,
 ) {
-  const body =
-    data && typeof data === "object" ? (data as Record<string, any>) : {};
-  const error =
-    body.error && typeof body.error === "object" ? body.error : {};
-  const legacy =
-    body.detail && typeof body.detail === "object" ? body.detail : {};
-  const legacyCode = typeof legacy.code === "string" ? legacy.code : null;
-  const code =
-    typeof error.code === "string"
-      ? error.code
-      : legacyCode || stableCode(status);
-  const details =
-    error.details ?? (legacyCode ? { legacy_code: legacyCode } : null);
-  const message =
-    typeof error.message === "string"
-      ? error.message
-      : typeof legacy.message === "string"
-        ? legacy.message
-        : fallbackMessage;
-  return new ApiError(status, message, code, details, requestId);
+  const error = normalizeApiError(status, data, requestId, fallbackMessage);
+  return new ApiError(
+    status,
+    error.message,
+    error.code,
+    error.details,
+    error.requestId,
+  );
 }
 
 export async function request<T>(
@@ -127,9 +104,7 @@ export async function request<T>(
         config.fallbackMessage || "请求失败，请稍后重试",
       );
     }
-    if (data && typeof data === "object" && Object.hasOwn(data, "data"))
-      return (data as { data: T }).data;
-    return data as T;
+    return unwrapApiData<T>(data);
   } catch (error) {
     if (externalAbort) throw new DOMException("Cancelled", "AbortError");
     if (error instanceof ApiError) throw error;

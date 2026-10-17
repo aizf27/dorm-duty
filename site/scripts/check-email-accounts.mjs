@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHarness } from "./check-cloud-backend.mjs";
+import { createHarness, responseData } from "./check-cloud-backend.mjs";
 import runtime from "../runtime/email-runtime.cjs";
 import { handleApi } from "../worker/backend.mjs";
 
@@ -56,7 +56,7 @@ async function api(p, data, status = 200, opts = {}) {
   eq(response.status, status);
   if (response.headers.get("Set-Cookie"))
     cookie = response.headers.get("Set-Cookie").split(";")[0];
-  return response.json();
+  return responseData(response);
 }
 async function login(email = "first@example.invalid", preferences = true) {
   const code = await api("/email/code", { email }, 202);
@@ -112,7 +112,7 @@ try {
       method: "POST",
       data: { name: "邮箱隔离宿舍", nickname: "甲", members: ["乙"] },
     })
-    .then((r) => r.json());
+    .then(responseData);
   const before = h.db.sqlite
     .prepare("SELECT COUNT(*) AS n FROM duty_tasks")
     .get().n;
@@ -203,7 +203,7 @@ try {
       `/chores/board?invite_code=${room.invite_code}&member_id=${ordinary.member_id}`,
       { token: ordinary.access_token },
     )
-    .then((r) => r.json());
+    .then(responseData);
   const task = board.today_tasks[0];
   const reminded = await h.request("/chores/remind", {
     method: "POST",

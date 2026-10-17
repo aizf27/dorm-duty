@@ -56,6 +56,11 @@ export async function createHarness() {
   };
 }
 
+export async function responseData(response) {
+  const body = await response.json();
+  return body?.data ?? body;
+}
+
 let assertions = 0;
 const secrets = [];
 function equal(actual, expected, message) {
@@ -117,7 +122,7 @@ export async function runBackendChecks() {
       /json/i.test(response.headers.get("content-type") || ""),
       `${route}: expected JSON`,
     );
-    return response.json();
+    return responseData(response);
   }
   async function account(h, username, nickname = username) {
     await api(h, "/auth/register", {
@@ -726,10 +731,11 @@ export async function runBackendChecks() {
     const task = await generateToday(h, a);
     await assign(h, a, task.id, { assignee_id: a.id });
     const missing = await api(h, "/guest/dorm", { status: 400 });
-    equal(missing.detail.code, "invite_required");
+    equal(missing.error.code, "validation_error");
+    equal(missing.error.details.legacy_code, "invite_required");
     h.env.DEFAULT_DORM_INVITE_CODE = dorm.invite_code;
     equal(
-      (await api(h, "/guest/dorm", { status: 400 })).detail.code,
+      (await api(h, "/guest/dorm", { status: 400 })).error.details.legacy_code,
       "invite_required",
     );
     const viewed = await api(

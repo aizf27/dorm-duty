@@ -13122,7 +13122,8 @@ function createEmailRuntime(db, {
         if (who && p === "/guest/create" && !result.ok && !session(request))
           fail(401, "\u90AE\u7BB1\u767B\u5F55\u5DF2\u8FC7\u671F\uFF0C\u8BF7\u91CD\u65B0\u9A8C\u8BC1\u540E\u521B\u5EFA\u5BBF\u820D");
         if (who && result.ok && p !== "/guest/create") {
-          const data = await result.clone().json();
+          const payload = await result.clone().json();
+          const data = payload?.data ?? payload;
           try {
             bind(who, data.access_token);
             const room = rooms(who).find((room2) => room2.member_id === data.member?.user_id);

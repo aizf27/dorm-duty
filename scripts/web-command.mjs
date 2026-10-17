@@ -70,6 +70,7 @@ const verificationScripts = [
   "scripts/check-web-architecture.mjs",
   "site/scripts/check-worker.mjs",
   "site/scripts/check-cloud-backend.mjs",
+  "site/scripts/check-api-contract.mjs",
   "site/scripts/check-chores.mjs",
   "site/scripts/check-rounds.mjs",
   "site/scripts/check-history.mjs",
@@ -99,23 +100,33 @@ if (action === "dev") {
 } else if (action === "verify") {
   const temporary = mkdtempSync(join(tmpdir(), "dorm-web-verify-"));
   const frontend = join(temporary, "frontend");
+  const worker = join(temporary, "worker", "index.js");
   const results = [];
   try {
     const buildStatus = buildFrontend(frontend);
     results.push(["frontend build", buildStatus]);
     if (buildStatus === 0) {
-      results.push([
-        "email runtime build",
-        run(process.execPath, ["site/scripts/build-email-runtime.mjs"]),
-      ]);
-      for (const script of verificationScripts) {
-        const env = {
-          ...(script.endsWith("check-worker.mjs")
-            ? { DORM_WORKER_INPUT: "worker/index.js" }
-            : {}),
+      const workerStatus = run(process.execPath, ["site/scripts/embed-frontend.mjs"], {
+        env: {
           DORM_FRONTEND_DIST: frontend,
-        };
-        results.push([script, run(process.execPath, [script], { env })]);
+          DORM_WORKER_OUTPUT: worker,
+        },
+      });
+      results.push(["worker build", workerStatus]);
+      if (workerStatus === 0) {
+        results.push([
+          "email runtime build",
+          run(process.execPath, ["site/scripts/build-email-runtime.mjs"]),
+        ]);
+        for (const script of verificationScripts) {
+          const env = {
+            ...(script.endsWith("check-worker.mjs")
+              ? { DORM_WORKER_INPUT: worker }
+              : {}),
+            DORM_FRONTEND_DIST: frontend,
+          };
+          results.push([script, run(process.execPath, [script], { env })]);
+        }
       }
     }
   } finally {

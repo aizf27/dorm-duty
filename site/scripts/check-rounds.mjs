@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import { createHarness, SQLiteD1 } from './check-cloud-backend.mjs';
+import { createHarness, responseData, SQLiteD1 } from './check-cloud-backend.mjs';
 const OriginalDate = Date;
 let clock = new OriginalDate('2026-10-14T03:00:00Z').getTime();
 let assertions = 0;
@@ -9,7 +9,7 @@ const ok = (value,message) => { assertions++; assert(value,message); };
 async function api(h, route, {status=200,...options}={}) {
   const res = await h.request(route,options);
   equal(res.status,status,`${route.split('?')[0]} status`);
-  return res.json();
+  return responseData(res);
 }
 async function room(h, names=['小林','小陈','小王']) {
   const r = await api(h,'/guest/create',{method:'POST',status:201,data:{name:'独立轮次验收',nickname:names[0],members:names.slice(1)}});

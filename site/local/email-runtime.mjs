@@ -859,7 +859,8 @@ export function createEmailRuntime(
         if (who && p === "/guest/create" && !result.ok && !session(request))
           fail(401, "邮箱登录已过期，请重新验证后创建宿舍");
         if (who && result.ok && p !== "/guest/create") {
-          const data = await result.clone().json();
+          const payload = await result.clone().json();
+          const data = payload?.data ?? payload;
           try {
             bind(who, data.access_token);
             const room = rooms(who).find((room) => room.member_id === data.member?.user_id);

@@ -13,6 +13,7 @@ export function createRequestId() {
 }
 
 function stableCode(status, code) {
+  if (status === 400) return "validation_error";
   if (status === 401) return "unauthorized";
   if (status === 403) return "forbidden";
   if (status === 404) return "not_found";
@@ -24,6 +25,7 @@ function stableCode(status, code) {
   if (status === 429) return "rate_limited";
   if (status === 503) return "dependency_unavailable";
   if (status >= 500) return "server_error";
+  if (status >= 400) return "request_failed";
   return code || "server_error";
 }
 

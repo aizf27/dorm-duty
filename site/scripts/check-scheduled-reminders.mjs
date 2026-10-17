@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHarness } from "./check-cloud-backend.mjs";
+import { createHarness, responseData } from "./check-cloud-backend.mjs";
 import { createReminderScheduler } from "../../scripts/reminder-scheduler.mjs";
 import { createPushDelivery } from "../../scripts/push-runtime.mjs";
 import { createNativeSender } from "../../scripts/native-push-provider.mjs";
@@ -43,7 +43,7 @@ async function api(
 ) {
   const r = await h.request(path, { token, method, ...(data ? { data } : {}) });
   eq(r.status, status, path.split("?")[0]);
-  return r.json();
+  return responseData(r);
 }
 async function fixture(h, deviceCount = 1) {
   const room = await api(

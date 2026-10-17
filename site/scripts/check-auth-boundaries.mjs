@@ -1,7 +1,7 @@
 // Disposable SQLite + injected mail. Never reads production secrets or sends mail.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { createHarness } from "./check-cloud-backend.mjs";
+import { createHarness, responseData } from "./check-cloud-backend.mjs";
 import { handleApi } from "../worker/backend.mjs";
 import runtime from "../runtime/email-runtime.cjs";
 const h = await createHarness(),
@@ -48,8 +48,8 @@ try {
   eq(first.status, 201);
   eq(repeated.status, 201);
   eq(
-    await first.json(),
-    await repeated.json(),
+    await responseData(first),
+    await responseData(repeated),
     "anonymous register replies do not reveal existence",
   );
   for (let n = 0; n < 5; n++)
@@ -103,7 +103,7 @@ try {
     name: "隔离会话",
     nickname: "甲",
     members: ["乙"],
-  }).then((r) => r.json());
+  }).then(responseData);
   const expires = db
     .prepare("SELECT expires_at FROM sessions WHERE token_hash=?")
     .get(hash(owner.access_token)).expires_at;
@@ -171,7 +171,7 @@ try {
   }
   const address = "boundary@example.invalid";
   async function code() {
-    return (await call("/email/code", { email: address })).json();
+    return responseData(await call("/email/code", { email: address }));
   }
   const challenge = await code();
   const digits = sent.at(-1).text.match(/验证码是：(\d{6})/)[1];
@@ -209,10 +209,8 @@ try {
   const room = await call("/guest/create", {
     name: "邮箱退出",
     nickname: "甲",
-  }).then((r) => r.json());
-  const grant = await call("/email/enter", { dorm_id: room.dorm.id }).then(
-    (r) => r.json(),
-  );
+  }).then(responseData);
+  const grant = await call("/email/enter", { dorm_id: room.dorm.id }).then(responseData);
   // First auth endpoint works even after gate validity is gone; second revokes all same-cookie grants.
   eq((await call("/auth/logout", {}, room.access_token)).status, 200);
   eq((await call("/email/logout", {})).status, 200);
@@ -224,7 +222,7 @@ try {
   );
   eq((await call("/auth/me", null, grant.access_token)).status, 428);
   eq((await call("/email/me")).status, 200);
-  eq((await call("/email/me").then((r) => r.json())).logged_in, false);
+  eq((await responseData(await call("/email/me"))).logged_in, false);
   eq(
     (await call("/email/logout", {})).status,
     200,
